@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: capstone-application
+  namespace: capstoneapp
+spec:
+  replicas: 2
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: capstone-application
+  template:
+    metadata:
+      labels:
+        app: capstone-application
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "vault-role"
+
+        vault.hashicorp.com/agent-inject-secret-spring-datasource-url: "secret/frontend"
+        vault.hashicorp.com/agent-inject-template-spring-datasource-url: |
+          {{- with secret "secret/frontend" -}}
+          export SPRING_DATASOURCE_URL="{{.Data.data.SPRING_DATASOURCE_URL}}"
+          {{- end}}
+
+        vault.hashicorp.com/agent-inject-secret-spring-datasource-username: "secret/frontend"
+        vault.hashicorp.com/agent-inject-template-spring-datasource-username: |
+          {{- with secret "secret/frontend" -}}
+          export SPRING_DATASOURCE_USERNAME="{{.Data.data.SPRING_DATASOURCE_USERNAME}}"
+          {{- end}}
+
+        vault.hashicorp.com/agent-inject-secret-spring-datasource-password: "secret/frontend"
+        vault.hashicorp.com/agent-inject-template-spring-datasource-password: |
+          {{- with secret "secret/frontend" -}}
+          export SPRING_DATASOURCE_PASSWORD="{{.Data.data.SPRING_DATASOURCE_PASSWORD}}"
+          {{- end}}
+    spec:
+      serviceAccountName: vault-auth
+      containers:
+      - name: capstone-application
+        image: danushvithiyarth/capstoneproject:v3
+        ports:
+        - containerPort: 80
+        command:
+          ["/bin/sh", "-c"]
+        args:
+          [
+            "source /vault/secrets/spring-datasource-url && \
+             source /vault/secrets/spring-datasource-username && \
+             source /vault/secrets/spring-datasource-password && \
+             java -jar app.jar"
+          ]
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: capstone-application-service
+  namespace: capstoneapp
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: capstone-application
