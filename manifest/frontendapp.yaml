@@ -59,7 +59,7 @@ metadata:
   name: capstone-application-service
   namespace: capstoneapp
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   ports:
   - port: 80
     targetPort: 8080
