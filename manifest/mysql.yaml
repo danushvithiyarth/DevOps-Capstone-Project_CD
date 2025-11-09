@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: capstoneapp
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "vault-role"
+
+        vault.hashicorp.com/agent-inject-secret-mysql-root-password: "secret/mysql"
+        vault.hashicorp.com/agent-inject-template-mysql-root-password: |
+          {{- with secret "secret/mysql" -}}
+          export MYSQL_ROOT_PASSWORD="{{.Data.data.MYSQL_ROOT_PASSWORD}}"
+          {{- end}}
+
+        vault.hashicorp.com/agent-inject-secret-mysql-database: "secret/mysql"
+        vault.hashicorp.com/agent-inject-template-mysql-database: |
+          {{- with secret "secret/mysql" -}}
+          export MYSQL_DATABASE="{{.Data.data.MYSQL_DATABASE}}"
+          {{- end}}
+
+    spec:
+      serviceAccountName: vault-auth
+      containers:
+      - name: mysql
+        image: mysql:8
+        ports:
+        - containerPort: 3306
+          name: mysql
+        command: ["/bin/sh", "-c"]
+        args:
+          [
+            "source /vault/secrets/mysql-root-password && \
+             source /vault/secrets/mysql-database && \
+             exec docker-entrypoint.sh mysqld"
+          ]
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: capstoneapp
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3306
+    targetPort: 3306
+  selector:
+    app: mysql
