@@ -1,0 +1,37 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: capstoneapp-alerts
+  namespace: monitoring
+  labels:
+    release: my-kube-prometheus-stack
+spec:
+  groups:
+  - name: capstoneapp.rules
+    rules:
+    - alert: CapstonePodNotRunning
+      expr: kube_pod_status_phase{namespace="capstoneapp", phase!~"Running|Succeeded"} > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Pod not running in capstoneapp namespace"
+        description: "Pod {{ $labels.pod }} (namespace: {{ $labels.namespace }}) is in {{ $labels.phase }} state for more than 2 minutes."
+
+    - alert: CapstoneDeploymentUnavailable
+      expr: kube_deployment_status_replicas_unavailable{namespace="capstoneapp"} > 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Deployment unavailable in capstoneapp namespace"
+        description: "Deployment {{ $labels.deployment }} has unavailable replicas for over 2 minutes."
+
+    - alert: CapstoneDeploymentMissing
+      expr: absent(kube_deployment_created{namespace="capstoneapp", deployment="capstone-application"})
+      for: 2m
+      labels:
+       severity: critical
+      annotations:
+       summary: "Deployment missing in capstoneapp namespace"
+       description: "The deployment capstone-application is missing in namespace capstoneapp for more than 2 minutes."
